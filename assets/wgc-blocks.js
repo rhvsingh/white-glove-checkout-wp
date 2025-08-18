@@ -5,14 +5,9 @@
     }
     var data = window.WGC_DATA || {};
     var isActive = !!data.active;
-    try {
-        // Debug logs (remove after diagnosing)
-        // eslint-disable-next-line no-console
-        console.log('[WGC] JS loaded. WGC_DATA=', data, 'active=', isActive);
-    } catch (e) {}
+    // (removed temporary debug logs)
     // Frontend guard: do not register if disabled
     if (!isActive) {
-        try { console.log('[WGC] JS: not registering (active=false)'); } catch (e) {}
         return;
     }
     // TEMP: diagnostic default label
@@ -28,5 +23,5 @@
         ariaLabel: label,
         supports: { features: [] }
     });
-    try { console.log('[WGC] JS: payment method registered'); } catch (e) {}
+    // (removed temporary debug logs)
 })();

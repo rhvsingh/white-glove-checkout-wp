@@ -18,10 +18,6 @@ class WGC_Blocks_Payment extends AbstractPaymentMethodType
     {
         $settings = get_option('woocommerce_wgc_settings', []);
         $enabled  = isset($settings['enabled']) ? $settings['enabled'] : 'yes';
-        // Debug log
-        if (function_exists('error_log')) {
-            error_log('[WGC] is_gateway_enabled settings=' . wp_json_encode($settings) . ' resolved_enabled=' . $enabled);
-        }
         return 'yes' === $enabled;
     }
 
@@ -34,9 +30,6 @@ class WGC_Blocks_Payment extends AbstractPaymentMethodType
     {
         // Mirror the classic gateway availability: hide if gateway is disabled
         $active = $this->is_gateway_enabled();
-        if (function_exists('error_log')) {
-            error_log('[WGC] Blocks is_active => ' . ($active ? 'true' : 'false'));
-        }
         return $active;
     }
 

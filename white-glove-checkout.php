@@ -35,9 +35,6 @@ add_action('woocommerce_init', function () {
     // Only register fields if gateway is enabled
     $settings = get_option('woocommerce_wgc_settings', []);
     $enabled  = isset($settings['enabled']) ? $settings['enabled'] : 'yes';
-    if (function_exists('error_log')) {
-        error_log('[WGC] Fields: enabled=' . $enabled);
-    }
     if ('yes' !== $enabled) {
         return;
     }
@@ -114,9 +111,6 @@ add_action('woocommerce_blocks_loaded', function () {
         // Only register the Blocks integration if the gateway is enabled
         $settings = get_option('woocommerce_wgc_settings', []);
         $enabled  = isset($settings['enabled']) ? $settings['enabled'] : 'yes';
-        if (function_exists('error_log')) {
-            error_log('[WGC] Blocks load: settings=' . (function_exists('wp_json_encode') ? wp_json_encode($settings) : json_encode($settings)) . ' enabled=' . $enabled);
-        }
         if ('yes' === $enabled) {
             require_once WGC_PATH . 'includes/class-wgc-blocks.php';
             add_action(
@@ -125,13 +119,8 @@ add_action('woocommerce_blocks_loaded', function () {
                     $registry->register(new WGC_Blocks_Payment());
                 }
             );
-            if (function_exists('error_log')) {
-                error_log('[WGC] Blocks integration registered (enabled=yes)');
-            }
         } else {
-            if (function_exists('error_log')) {
-                error_log('[WGC] Blocks integration skipped (enabled!=yes)');
-            }
+            // No registration when disabled.
         }
     }
 });

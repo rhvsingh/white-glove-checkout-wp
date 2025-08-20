@@ -8,8 +8,7 @@ use Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodTyp
 class WGC_Blocks_Payment extends AbstractPaymentMethodType
 {
 
-    // TEMP: diagnostic rename to ensure no other source is registering 'wgc'
-    protected $name = 'wgc-test';
+    protected $name = 'wgc';
 
     /**
      * Returns true if the classic gateway is enabled in settings.
@@ -45,10 +44,18 @@ class WGC_Blocks_Payment extends AbstractPaymentMethodType
         );
 
         // Pass labels and the active flag to JS as a frontend guard.
+        // Read title/description from gateway settings
+        $settings    = get_option('woocommerce_wgc_settings', []);
+        $title       = isset($settings['title']) && $settings['title'] !== ''
+            ? $settings['title']
+            : __('White Glove (No Payment)', 'white-glove-checkout');
+        $description = isset($settings['description']) && $settings['description'] !== ''
+            ? $settings['description']
+            : __('Place order without payment. We will contact you to finalize service.', 'white-glove-checkout');
+
         wp_localize_script('wgc-blocks', 'WGC_DATA', [
-            // TEMP label for diagnosis
-            'title'       => __('White Glove (TEST)', 'white-glove-checkout'),
-            'description' => __('Diagnostic label to confirm source. No payment is collected now.', 'white-glove-checkout'),
+            'title'       => $title,
+            'description' => $description,
             'active'      => $this->is_gateway_enabled(),
         ]);
 
@@ -57,10 +64,17 @@ class WGC_Blocks_Payment extends AbstractPaymentMethodType
 
     public function get_payment_method_data()
     {
-        // TEMP data for diagnosis
+        // Provide translated strings and flags to the frontend context
+        $settings    = get_option('woocommerce_wgc_settings', []);
+        $title       = isset($settings['title']) && $settings['title'] !== ''
+            ? $settings['title']
+            : __('White Glove (No Payment)', 'white-glove-checkout');
+        $description = isset($settings['description']) && $settings['description'] !== ''
+            ? $settings['description']
+            : __('Place order without payment. We will contact you to finalize service.', 'white-glove-checkout');
         return [
-            'title'       => __('White Glove (TEST)', 'white-glove-checkout'),
-            'description' => __('Diagnostic label to confirm source. No payment is collected now.', 'white-glove-checkout'),
+            'title'       => $title,
+            'description' => $description,
             'supports'    => [],
         ];
     }

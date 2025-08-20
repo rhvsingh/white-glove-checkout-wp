@@ -9,20 +9,25 @@ class WGC_Gateway extends WC_Payment_Gateway
     public function __construct()
     {
         $this->id                 = 'wgc';
-        $this->method_title       = __('White Glove (No Payment)', 'white-glove-checkout');
-        $this->method_description = __('Place order without payment. We will contact you to finalize service.', 'white-glove-checkout');
-        $this->has_fields         = false;
+        $this->icon               = '';
+        $this->has_fields         = true;
+        $this->method_title       = __('White Glove Checkout', 'white-glove-checkout');
+        $this->method_description = __('Allows customers to request white glove service.', 'white-glove-checkout');
         $this->supports           = ['products'];
-        $this->title              = __('White Glove (No Payment)', 'white-glove-checkout');
 
+        // Load the settings
         $this->init_form_fields();
         $this->init_settings();
 
-        // Load settings
-        $this->enabled     = $this->get_option('enabled', 'yes');
-        $this->title       = $this->get_option('title', __('White Glove (No Payment)', 'white-glove-checkout'));
-        $this->description = $this->get_option('description', __('Place order without payment. We will contact you to finalize service.', 'white-glove-checkout'));
+        // Define user set variables
+        $this->title        = $this->get_option('title');
+        $this->description  = $this->get_option('description');
+        $this->enabled      = $this->get_option('enabled');
 
+        // Debug: Log gateway initialization
+        error_log('WGC Gateway initialized. Enabled: ' . $this->enabled . ', Title: ' . $this->title);
+
+        // Actions
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, [$this, 'process_admin_options']);
     }
 
@@ -54,11 +59,25 @@ class WGC_Gateway extends WC_Payment_Gateway
 
     public function is_available()
     {
-        if ('yes' !== $this->enabled) {
-            return false;
+        $available = ('yes' === $this->enabled);
+        error_log('WGC Gateway is_available() called. Enabled: ' . $this->enabled . ', Available: ' . ($available ? 'YES' : 'NO'));
+        return $available;
+    }
+
+    /**
+     * Output payment fields (Classic checkout): required details textarea.
+     */
+    public function payment_fields()
+    {
+        if (! empty($this->description)) {
+            echo wpautop(wptexturize($this->description));
         }
-        // Allow guest checkout or logged-in users
-        return 'yes' === get_option('woocommerce_enable_guest_checkout', 'yes') || is_user_logged_in();
+        echo '<fieldset id="wgc-details-fields" class="wgc-fields">';
+        echo '<p class="form-row form-row-wide">';
+        echo '<label for="wgc_details">' . esc_html__('White Glove Service Details', 'white-glove-checkout') . ' <span class="required">*</span></label>';
+        echo '<textarea name="wgc_details" id="wgc_details" rows="4" required placeholder="' . esc_attr__('Please add any helpful details for our team.', 'white-glove-checkout') . '"></textarea>';
+        echo '</p>';
+        echo '</fieldset>';
     }
 
     public function process_payment($order_id)

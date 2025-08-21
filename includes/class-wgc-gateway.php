@@ -24,9 +24,6 @@ class WGC_Gateway extends WC_Payment_Gateway
         $this->description  = $this->get_option('description');
         $this->enabled      = $this->get_option('enabled');
 
-        // Debug: Log gateway initialization
-        error_log('WGC Gateway initialized. Enabled: ' . $this->enabled . ', Title: ' . $this->title);
-
         // Actions
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, [$this, 'process_admin_options']);
     }
@@ -60,7 +57,6 @@ class WGC_Gateway extends WC_Payment_Gateway
     public function is_available()
     {
         $available = ('yes' === $this->enabled);
-        error_log('WGC Gateway is_available() called. Enabled: ' . $this->enabled . ', Available: ' . ($available ? 'YES' : 'NO'));
         return $available;
     }
 

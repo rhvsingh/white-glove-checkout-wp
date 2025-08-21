@@ -1,131 +1,303 @@
 ;(function () {
-    if (typeof window === 'undefined' || typeof wc === 'undefined' || !wc.wcBlocksRegistry) {
-        return;
+    if (typeof window === "undefined" || typeof wc === "undefined" || !wc.wcBlocksRegistry) {
+        return
     }
-    var data = window.WGC_DATA || {};
-    var isActive = !!data.active;
-    
-    if (!isActive) {
-        return;
-    }
-    
-    const { registerPaymentMethod } = window.wc.wcBlocksRegistry;
-    const { createElement, useState, useEffect } = window.wp.element;
-    const { __ } = window.wp.i18n;
-    const { useSelect, useDispatch } = window.wp.data;
 
-    const Label = (props) => {
-        return createElement('span', { 
-            className: 'wc-block-components-payment-method-label',
-            style: { fontWeight: 'bold' }
-        }, __('White Glove (No Payment)', 'white-glove-checkout'));
-    };
+    const data = window.WGC_DATA || {}
+    if (!data.active) return
 
-    const Content = (props) => {
-        const [details, setDetails] = useState('');
-        const { setPaymentMethodData } = useDispatch('wc/store/payment');
-        
-        // Hide other payment methods when this is selected
-        useEffect(() => {
-            if (props.activePaymentMethod === 'wgc') {
-                // Hide shipping section
-                const shippingSection = document.querySelector('.wc-block-components-shipping-rates-control');
-                if (shippingSection) {
-                    shippingSection.style.display = 'none';
+    const { registerPaymentMethod } = wc.wcBlocksRegistry
+    const { createElement, useState, useEffect, useMemo } = wp.element
+    const { __ } = wp.i18n
+
+    // Create and inject CSS once
+    const injectStyles = (() => {
+        let injected = false
+        return () => {
+            if (injected) return
+            injected = true
+
+            const style = document.createElement("style")
+            style.textContent = `
+                .wgc-payment-method-content { margin-top: 1em; }
+                .wgc-service-details { margin-top: 1em; }
+                .wgc-service-details label { 
+                    display: block; 
+                    margin-bottom: 0.5em; 
+                    font-weight: 600; 
                 }
-                
-                // Add "Calculated later" message for shipping
-                let calculatedMsg = document.getElementById('wgc-shipping-message');
-                if (!calculatedMsg) {
-                    calculatedMsg = document.createElement('div');
-                    calculatedMsg.id = 'wgc-shipping-message';
-                    calculatedMsg.innerHTML = '<p><strong>Shipping:</strong> Calculated later</p>';
-                    calculatedMsg.style.cssText = 'margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 4px;';
-                    
-                    const checkoutForm = document.querySelector('.wc-block-checkout__main');
-                    if (checkoutForm) {
-                        checkoutForm.insertBefore(calculatedMsg, checkoutForm.firstChild);
+                .wgc-service-details textarea { 
+                    width: 100%; 
+                    min-height: 100px; 
+                    padding: 8px; 
+                    border: 1px solid #ddd; 
+                    border-radius: 4px; 
+                }
+                .wgc-shipping-message { 
+                    padding: 1em; 
+                    background-color: #f8f9fa; 
+                    border: 1px solid #e0e0e0; 
+                    border-radius: 4px; 
+                    margin: 0.5em 0; 
+                }
+            `
+            document.head.appendChild(style)
+        }
+    })()
+
+    const Label = ({ components }) => {
+        return createElement(components.PaymentMethodLabel, { text: data.title })
+    }
+
+    const Content = ({ eventRegistration, emitResponse }) => {
+        const { onPaymentSetup, onCheckoutValidation } = eventRegistration
+        const [serviceDetails, setServiceDetails] = useState("")
+
+        // Memoize description paragraphs
+        const descriptionParagraphs = useMemo(() => {
+            return data.description
+                .split("\n")
+                .filter((line) => line.trim())
+                .map((line, index) =>
+                    createElement(
+                        "p",
+                        {
+                            key: index,
+                            className: "wgc-description-line",
+                        },
+                        line.trim()
+                    )
+                )
+        }, [data.description])
+
+        // Payment setup validation
+        useEffect(() => {
+            if (!onPaymentSetup) return
+
+            const unsubscribe = onPaymentSetup(() => {
+                if (!serviceDetails.trim()) {
+                    return {
+                        type: emitResponse.responseTypes.ERROR,
+                        message: __("Please provide service details for White Glove service.", "white-glove-checkout"),
+                        messageContext: "wc/checkout/payments",
                     }
                 }
-            } else {
-                // Show shipping section when other methods selected
-                const shippingSection = document.querySelector('.wc-block-components-shipping-rates-control');
-                if (shippingSection) {
-                    shippingSection.style.display = 'block';
+                return { type: emitResponse.responseTypes.SUCCESS }
+            })
+            return unsubscribe
+        }, [onPaymentSetup, serviceDetails, emitResponse.responseTypes])
+
+        // Shipping visibility toggle - optimized
+        useEffect(() => {
+            let currentState = null
+            let debounceTimer = null
+
+            // Cache DOM selectors
+            const selectors = {
+                paymentMethods: 'input[name="radio-control-wc-payment-method-options"]',
+                shippingMethods: ".wc-block-components-shipping-methods",
+                shippingTotal: ".wc-block-components-totals-shipping",
+                shippingHeading: ".wc-block-components-shipping-rates-control__package:not(.wc-block-components-panel)",
+            }
+
+            const toggleShipping = (isWhiteGlove) => {
+                if (isWhiteGlove === currentState) return
+                currentState = isWhiteGlove
+
+                const elements = {
+                    methods: document.querySelector(selectors.shippingMethods),
+                    total: document.querySelector(selectors.shippingTotal),
+                    heading: document.querySelector(selectors.shippingHeading),
                 }
-                
-                // Remove calculated message
-                const calculatedMsg = document.getElementById('wgc-shipping-message');
-                if (calculatedMsg) {
-                    calculatedMsg.remove();
+
+                if (isWhiteGlove) {
+                    // Hide shipping elements
+                    Object.values(elements).forEach((el) => {
+                        if (el) el.style.display = "none"
+                    })
+
+                    // Add custom message if not already present
+                    if (elements.total && !elements.total.parentNode.querySelector(".wgc-shipping-message")) {
+                        const message = document.createElement("div")
+                        message.className = "wgc-shipping-message"
+                        message.textContent = __("Shipping will be calculated later", "white-glove-checkout")
+                        elements.total.parentNode.insertBefore(message, elements.total.nextSibling)
+                    }
+                } else {
+                    // Restore shipping elements
+                    Object.values(elements).forEach((el) => {
+                        if (el) el.style.display = ""
+                    })
+                    // Remove custom messages
+                    document.querySelectorAll(".wgc-shipping-message").forEach((el) => el.remove())
                 }
             }
-        }, [props.activePaymentMethod]);
-        
-        // Update payment data when details change
-        useEffect(() => {
-            if (props.activePaymentMethod === 'wgc') {
-                setPaymentMethodData({
-                    wgc_details: details
-                });
+
+            const handlePaymentChange = () => {
+                const selectedMethod = document.querySelector(`${selectors.paymentMethods}:checked`)
+                toggleShipping(selectedMethod?.value === "wgc")
             }
-        }, [details, props.activePaymentMethod, setPaymentMethodData]);
-        
-        return createElement('div', { 
-            className: 'wgc-payment-content',
-            style: { margin: '15px 0' }
-        },
-            createElement('p', { 
-                style: { marginBottom: '15px', color: '#666' }
-            }, __('Place order without payment. We will contact you to finalize service.', 'white-glove-checkout')),
-            
-            createElement('div', { 
-                className: 'wgc-details-field',
-                style: { marginBottom: '10px' }
-            },
-                createElement('label', { 
-                    htmlFor: 'wgc_details_blocks',
-                    className: 'wgc-details-label',
-                    style: { 
-                        display: 'block', 
-                        marginBottom: '5px', 
-                        fontWeight: 'bold',
-                        fontSize: '14px'
-                    }
-                }, __('White Glove Service Details', 'white-glove-checkout') + ' ', 
-                    createElement('span', { style: { color: 'red' } }, '*')
-                ),
-                createElement('textarea', {
-                    id: 'wgc_details_blocks',
-                    name: 'wgc_details',
-                    rows: 4,
-                    required: true,
-                    placeholder: __('Please add any helpful details for our team.', 'white-glove-checkout'),
-                    value: details,
-                    onChange: (e) => setDetails(e.target.value),
-                    className: 'wgc-details-textarea',
-                    style: {
-                        width: '100%',
-                        padding: '8px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        fontFamily: 'inherit'
-                    }
+
+            const debouncedHandler = () => {
+                clearTimeout(debounceTimer)
+                debounceTimer = setTimeout(handlePaymentChange, 150)
+            }
+
+            const attachListeners = () => {
+                document.querySelectorAll(selectors.paymentMethods).forEach((input) => {
+                    input.removeEventListener("change", handlePaymentChange)
+                    input.addEventListener("change", handlePaymentChange)
                 })
-            )
-        );
-    };
+            }
 
+            // Initial setup
+            attachListeners()
+            handlePaymentChange()
+
+            // Optimized observer - only watches for payment method changes
+            const observer = new MutationObserver((mutations) => {
+                const hasPaymentMethodChange = mutations.some((mutation) =>
+                    Array.from(mutation.addedNodes).some(
+                        (node) =>
+                            node.nodeType === 1 &&
+                            (node.matches?.(selectors.paymentMethods) || node.querySelector?.(selectors.paymentMethods))
+                    )
+                )
+
+                if (hasPaymentMethodChange) {
+                    attachListeners()
+                    debouncedHandler()
+                }
+            })
+
+            const checkoutContainer = document.querySelector(".wc-block-checkout") || document.body
+            observer.observe(checkoutContainer, { childList: true, subtree: true })
+
+            // Cleanup
+            return () => {
+                document.querySelectorAll(selectors.paymentMethods).forEach((input) => {
+                    input.removeEventListener("change", handlePaymentChange)
+                })
+                observer.disconnect()
+                clearTimeout(debounceTimer)
+
+                // Reset UI state
+                const elements = {
+                    methods: document.querySelector(selectors.shippingMethods),
+                    total: document.querySelector(selectors.shippingTotal),
+                    heading: document.querySelector(selectors.shippingHeading),
+                }
+
+                Object.values(elements).forEach((el) => {
+                    if (el) el.style.display = ""
+                })
+                document.querySelectorAll(".wgc-shipping-message").forEach((el) => el.remove())
+            }
+        }, [])
+
+        // Checkout validation
+        useEffect(() => {
+            if (!onCheckoutValidation) return
+
+            const unsubscribe = onCheckoutValidation(() => ({
+                type: emitResponse.responseTypes.SUCCESS,
+                meta: {
+                    paymentMethodData: {
+                        wgc_details: serviceDetails,
+                    },
+                },
+            }))
+            return unsubscribe
+        }, [serviceDetails, onCheckoutValidation, emitResponse])
+
+        // Inject styles on mount
+        useEffect(() => {
+            injectStyles()
+        }, [])
+
+        return createElement(
+            "div",
+            { className: "wgc-payment-content", style: { margin: "15px 0" } },
+
+            // Description
+            createElement(
+                "div",
+                {
+                    className: "wgc-description",
+                    style: {
+                        backgroundColor: "#f9f9f9",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
+                        padding: "12px",
+                        marginBottom: "15px",
+                        fontSize: "14px",
+                        lineHeight: "1.5",
+                    },
+                },
+                descriptionParagraphs
+            ),
+
+            // Service details input
+            createElement(
+                "div",
+                {
+                    className: "wgc-service-details",
+                    style: { marginBottom: "10px" },
+                },
+                [
+                    createElement(
+                        "label",
+                        {
+                            key: "label",
+                            htmlFor: "wgc-service-details",
+                            className: "wgc-details-label",
+                            style: {
+                                display: "block",
+                                marginBottom: "5px",
+                                fontWeight: "bold",
+                                fontSize: "14px",
+                            },
+                        },
+                        [
+                            __("White Glove Service Details", "white-glove-checkout") + " ",
+                            createElement("span", { key: "required", style: { color: "red" } }, "*"),
+                        ]
+                    ),
+
+                    createElement("textarea", {
+                        key: "textarea",
+                        id: "wgc_details_blocks",
+                        name: "wgc_details",
+                        rows: 4,
+                        required: true,
+                        placeholder: __("Please add any helpful details for our team.", "white-glove-checkout"),
+                        value: serviceDetails,
+                        onChange: (e) => setServiceDetails(e.target.value),
+                        className: "wgc-details-textarea",
+                        style: {
+                            width: "100%",
+                            padding: "8px",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            fontSize: "14px",
+                            fontFamily: "inherit",
+                        },
+                    }),
+                ]
+            )
+        )
+    }
+
+    // Register payment method
     registerPaymentMethod({
-        name: 'wgc',
+        name: "wgc",
         label: createElement(Label),
         content: createElement(Content),
         edit: createElement(Content),
         canMakePayment: () => true,
-        ariaLabel: __('White Glove (No Payment)', 'white-glove-checkout'),
+        ariaLabel: __("White Glove (No Payment)", "white-glove-checkout"),
         supports: {
-            features: ['products']
-        }
-    });
-})();
+            features: ["products"],
+        },
+    })
+})()

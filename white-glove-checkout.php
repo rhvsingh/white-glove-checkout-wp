@@ -41,25 +41,6 @@ require_once WGC_PATH . 'includes/wgc-admin.php';
  * White Glove is now a standalone payment method - no additional checkout fields needed.
  */
 
- 
-
- 
-
- 
-
- 
-
- 
-
-
- 
-
- 
-
-
- 
-
- 
 
 /**
  * Register payment gateway (works in classic checkout).
@@ -119,6 +100,3 @@ add_action('wp_enqueue_scripts', function () {
     wp_enqueue_style('wgc-frontend', WGC_URL . 'assets/wgc-frontend.css', [], '1.0');
     wp_enqueue_script('wgc-frontend', WGC_URL . 'assets/wgc-frontend.js', ['jquery'], '1.0', true);
 });
-
-
- 

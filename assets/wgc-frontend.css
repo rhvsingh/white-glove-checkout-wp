@@ -1,0 +1,45 @@
+/* ANCHOR: White Glove Checkout Frontend Styles */
+
+/* SECTION: Payment method container */
+.wgc-payment-content {
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+/* SECTION: Textarea focus */
+.wgc-details-textarea:focus {
+  border-color: #007cba !important;
+  outline: none !important;
+  box-shadow: 0 0 0 1px #007cba !important;
+}
+
+/* SECTION: Layout helpers */
+.wgc-payment-method-content { margin-top: 1em; }
+.wgc-service-details { margin-top: 1em; }
+
+.wgc-service-details label {
+  display: block;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.wgc-service-details textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+/* SECTION: Shipping message */
+.wgc-shipping-message {
+  padding: 1em;
+  background-color: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin: 0.5em 0;
+}

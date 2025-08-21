@@ -1,0 +1,104 @@
+<?php
+
+// ANCHOR: White Glove Checkout - Checkout lifecycle
+
+if (! defined('ABSPATH')) { exit; }
+
+require_once __DIR__ . '/wgc-helpers.php';
+
+// SECTION: Clear chosen method on fresh checkout page
+add_action('template_redirect', function () {
+    if (is_checkout() && !is_wc_endpoint_url() && function_exists('WC') && WC()->session) {
+        if (!wp_doing_ajax() && !isset($_POST['payment_method']) && !isset($_GET['pay_for_order'])) {
+            WC()->session->set('chosen_payment_method', '');
+            if (isset($_COOKIE['woocommerce_chosen_payment_method'])) {
+                setcookie('woocommerce_chosen_payment_method', '', time() - 3600, '/');
+            }
+        }
+    }
+});
+
+// SECTION: Validation for required details
+add_action('woocommerce_after_checkout_validation', function ($data, $errors) {
+    $method = isset($data['payment_method']) ? (string) $data['payment_method'] : '';
+    if ($method !== 'wgc') return;
+    $details = isset($_POST['wgc_details']) ? (string) wp_unslash($_POST['wgc_details']) : '';
+    if ($details === '' && isset($_POST['wgc-blocks-details'])) {
+        $details = (string) wp_unslash($_POST['wgc-blocks-details']);
+    }
+    if ($details === '') {
+        $errors->add('wgc_details_required', __('Please provide White Glove Service Details.', 'white-glove-checkout'));
+    }
+}, 10, 2);
+
+// SECTION: Save details in classic checkout
+add_action('woocommerce_checkout_create_order', function ($order, $data) {
+    $method = isset($data['payment_method']) ? (string) $data['payment_method'] : '';
+    if ($method !== 'wgc') return;
+    $details = isset($_POST['wgc_details']) ? (string) wp_unslash($_POST['wgc_details']) : '';
+    if ($details === '' && isset($_POST['wgc-blocks-details'])) {
+        $details = (string) wp_unslash($_POST['wgc-blocks-details']);
+    }
+    if ($details !== '') {
+        $order->update_meta_data('_wgc_details', $details);
+    }
+}, 10, 2);
+
+// SECTION: Store API - update order from request (Blocks)
+add_action('woocommerce_store_api_checkout_update_order_from_request', function ($order, $request) {
+    if (! $order instanceof WC_Order) {
+        return;
+    }
+
+    $params = is_object($request) && method_exists($request, 'get_json_params') ? (array) $request->get_json_params() : [];
+    $method = isset($params['payment_method']) ? (string) $params['payment_method'] : (string) $order->get_payment_method();
+    if ($method !== 'wgc') {
+        return;
+    }
+
+    $details = '';
+
+    if (isset($params['payment_data']) && is_array($params['payment_data'])) {
+        $pd = $params['payment_data'];
+
+        if (isset($pd['wgc_details'])) {
+            $details = (string) $pd['wgc_details'];
+        } elseif (isset($pd['wgc-blocks-details'])) {
+            $details = (string) $pd['wgc-blocks-details'];
+        } else {
+            foreach ($pd as $item) {
+                if (is_array($item) && isset($item['key']) && ($item['key'] === 'wgc_details' || $item['key'] === 'wgc-blocks-details')) {
+                    $details = isset($item['value']) ? (string) $item['value'] : '';
+                    if ($details !== '') break;
+                }
+            }
+        }
+    }
+
+    if ($details !== '') {
+        $order->update_meta_data('_wgc_details', wp_kses_post($details));
+        if (method_exists($order, 'save')) {
+            $order->save();
+        }
+    }
+}, 10, 2);
+
+// SECTION: Ensure On-Hold status for WGC orders
+add_action('woocommerce_checkout_order_processed', function ($order_id, $posted, $order) {
+    if (! $order instanceof WC_Order) {
+        $order = wc_get_order($order_id);
+    }
+    if ($order && $order->get_payment_method() === 'wgc' && $order->get_status() !== 'on-hold') {
+        $order->update_status('on-hold', __('White Glove order placed without payment. Team will contact customer.', 'white-glove-checkout'));
+    }
+}, 10, 3);
+
+// SECTION: Keep WGC first in available gateways
+add_filter('woocommerce_available_payment_gateways', function ($available_gateways) {
+    if (isset($available_gateways['wgc']) && !is_admin()) {
+        $wgc_gateway = $available_gateways['wgc'];
+        unset($available_gateways['wgc']);
+        $available_gateways = ['wgc' => $wgc_gateway] + $available_gateways;
+    }
+    return $available_gateways;
+}, 999);

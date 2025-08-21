@@ -4,9 +4,11 @@
  * Plugin Name: White Glove Checkout
  * Description: Adds White Glove fields to Checkout Block and a no-payment gateway.
  * Author: Raja Harsh Vardhan Singh
- * Version: 1.3.0
+ * Version: 1.7.0
  * Text Domain: white-glove-checkout
  * Domain Path: /languages
+ * 
+ * Requires Plugins: woocommerce
  */
 
 if (! defined('ABSPATH')) {
@@ -77,7 +79,7 @@ add_action('woocommerce_after_checkout_validation', function ($data, $errors) {
 }, 10, 2);
 
 /**
- * Save details to order meta.
+ * Save details to order meta for classic checkout.
  */
 add_action('woocommerce_checkout_create_order', function ($order, $data) {
     $method = isset($data['payment_method']) ? (string) $data['payment_method'] : '';
@@ -90,6 +92,50 @@ add_action('woocommerce_checkout_create_order', function ($order, $data) {
         $order->update_meta_data('_wgc_details', $details);
     }
 }, 10, 2);
+
+/**
+ * Blocks (Store API): save White Glove details sent via payment_data.
+ */
+add_action('woocommerce_store_api_checkout_update_order_from_request', function ($order, $request) {
+    if (! $order instanceof WC_Order) {
+        return;
+    }
+
+    $params = is_object($request) && method_exists($request, 'get_json_params') ? (array) $request->get_json_params() : [];
+    $method = isset($params['payment_method']) ? (string) $params['payment_method'] : (string) $order->get_payment_method();
+    if ($method !== 'wgc') {
+        return;
+    }
+
+    $details = '';
+
+    if (isset($params['payment_data']) && is_array($params['payment_data'])) {
+        $pd = $params['payment_data'];
+
+        // Associative object case
+        if (isset($pd['wgc_details'])) {
+            $details = (string) $pd['wgc_details'];
+        } elseif (isset($pd['wgc-blocks-details'])) {
+            $details = (string) $pd['wgc-blocks-details'];
+        } else {
+            // Array of { key, value } pairs case
+            foreach ($pd as $item) {
+                if (is_array($item) && isset($item['key']) && ($item['key'] === 'wgc_details' || $item['key'] === 'wgc-blocks-details')) {
+                    $details = isset($item['value']) ? (string) $item['value'] : '';
+                    if ($details !== '') break;
+                }
+            }
+        }
+    }
+
+    if ($details !== '') {
+        $order->update_meta_data('_wgc_details', wp_kses_post($details));
+        if (method_exists($order, 'save')) {
+            $order->save();
+        }
+    }
+}, 10, 2);
+
 
 /**
  * Ensure WGC orders are On-Hold.
@@ -160,7 +206,7 @@ add_action('woocommerce_admin_order_data_after_billing_address', function ($orde
     echo '<div class="wgc-admin-meta">';
     echo '<p><strong>' . esc_html__('White Glove Order:', 'white-glove-checkout') . '</strong> Yes</p>';
     if (! empty($details)) {
-        echo '<p><strong>' . esc_html__('Service Details:', 'white-glove-checkout') . '</strong><br>' . nl2br(esc_html($details)) . '</p>';
+        echo '<p><strong>' . esc_html__('White Glove Service Details:', 'white-glove-checkout') . '</strong><br>' . nl2br(esc_html($details)) . '</p>';
     }
     echo '</div>';
 });
@@ -279,26 +325,42 @@ add_action('wp_head', function () {
             margin: 10px 0;
         }
 
-        .wgc-details-textarea {
-            border: 1px solid #ddd !important;
-            border-radius: 4px !important;
-            padding: 8px !important;
-            width: 100% !important;
-            box-sizing: border-box !important;
-        }
-
         .wgc-details-textarea:focus {
             border-color: #007cba !important;
             outline: none !important;
             box-shadow: 0 0 0 1px #007cba !important;
         }
 
-        #wgc-shipping-message {
-            background: #e7f3ff;
-            border-left: 4px solid #007cba;
-            padding: 12px;
-            margin: 15px 0;
+        .wgc-payment-method-content {
+            margin-top: 1em;
+        }
+
+        .wgc-service-details {
+            margin-top: 1em;
+        }
+
+        .wgc-service-details label {
+            display: block;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+        }
+
+        .wgc-service-details textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
             border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .wgc-shipping-message {
+            padding: 1em;
+            background-color: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            margin: 0.5em 0;
         }
     </style>
 <?php
@@ -339,7 +401,7 @@ add_action('wp_footer', function () {
                     }
 
                     // Force trigger checkout update when payment method changes
-                    $(document).on('change', 'input[name="payment_method"]', function() {
+                    $(document).on('change', 'input[name="radio-control-wc-payment-method-options"]', function() {
                         // Clear shipping cache and trigger update
                         $('body').trigger('update_checkout', {
                             update_shipping_method: true

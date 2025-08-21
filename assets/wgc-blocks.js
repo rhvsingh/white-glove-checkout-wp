@@ -10,41 +10,6 @@
     const { createElement, useState, useEffect, useMemo } = wp.element
     const { __ } = wp.i18n
 
-    // Create and inject CSS once
-    const injectStyles = (() => {
-        let injected = false
-        return () => {
-            if (injected) return
-            injected = true
-
-            const style = document.createElement("style")
-            style.textContent = `
-                .wgc-payment-method-content { margin-top: 1em; }
-                .wgc-service-details { margin-top: 1em; }
-                .wgc-service-details label { 
-                    display: block; 
-                    margin-bottom: 0.5em; 
-                    font-weight: 600; 
-                }
-                .wgc-service-details textarea { 
-                    width: 100%; 
-                    min-height: 100px; 
-                    padding: 8px; 
-                    border: 1px solid #ddd; 
-                    border-radius: 4px; 
-                }
-                .wgc-shipping-message { 
-                    padding: 1em; 
-                    background-color: #f8f9fa; 
-                    border: 1px solid #e0e0e0; 
-                    border-radius: 4px; 
-                    margin: 0.5em 0; 
-                }
-            `
-            document.head.appendChild(style)
-        }
-    })()
-
     const Label = ({ components }) => {
         return createElement(components.PaymentMethodLabel, { text: data.title })
     }
@@ -82,7 +47,15 @@
                         messageContext: "wc/checkout/payments",
                     }
                 }
-                return { type: emitResponse.responseTypes.SUCCESS }
+                return {
+                    type: emitResponse.responseTypes.SUCCESS,
+                    meta: {
+                        paymentMethodData: {
+                            wgc_details: serviceDetails.trim(),
+                            "wgc-blocks-details": serviceDetails.trim(), // fallback key
+                        },
+                    },
+                }
             })
             return unsubscribe
         }, [onPaymentSetup, serviceDetails, emitResponse.responseTypes])
@@ -210,11 +183,6 @@
             return unsubscribe
         }, [serviceDetails, onCheckoutValidation, emitResponse])
 
-        // Inject styles on mount
-        useEffect(() => {
-            injectStyles()
-        }, [])
-
         return createElement(
             "div",
             { className: "wgc-payment-content", style: { margin: "15px 0" } },
@@ -267,21 +235,13 @@
                     createElement("textarea", {
                         key: "textarea",
                         id: "wgc_details_blocks",
+                        className: "wgc-details-textarea",
                         name: "wgc_details",
                         rows: 4,
                         required: true,
                         placeholder: __("Please add any helpful details for our team.", "white-glove-checkout"),
                         value: serviceDetails,
                         onChange: (e) => setServiceDetails(e.target.value),
-                        className: "wgc-details-textarea",
-                        style: {
-                            width: "100%",
-                            padding: "8px",
-                            border: "1px solid #ddd",
-                            borderRadius: "4px",
-                            fontSize: "14px",
-                            fontFamily: "inherit",
-                        },
                     }),
                 ]
             )

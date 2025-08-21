@@ -212,6 +212,35 @@ add_action('woocommerce_admin_order_data_after_billing_address', function ($orde
 });
 
 /**
+ * Emails: include White Glove details in order notifications (admin + customer).
+ */
+add_action('woocommerce_email_order_meta', function ($order, $sent_to_admin, $plain_text, $email) {
+    if (! $order instanceof WC_Order) {
+        return;
+    }
+    if ($order->get_payment_method() !== 'wgc') {
+        return;
+    }
+    // Only output details in admin emails
+    if (! $sent_to_admin) {
+        return;
+    }
+
+    $details = (string) $order->get_meta('_wgc_details', true);
+    if ($details === '') {
+        return;
+    }
+
+    if ($plain_text) {
+        echo "\n" . __('White Glove Service Details:', 'white-glove-checkout') . "\n";
+        echo wc_clean($details) . "\n";
+    } else {
+        echo '<h3 style="margin:16px 0 8px 0;">' . esc_html__('White Glove Service Details', 'white-glove-checkout') . '</h3>';
+        echo '<p style="margin:0;white-space:pre-wrap;">' . nl2br(esc_html($details)) . '</p>';
+    }
+}, 20, 4);
+
+/**
  * Add White Glove column to Orders list.
  */
 add_filter('manage_woocommerce_page_wc-orders_columns', function ($columns) {

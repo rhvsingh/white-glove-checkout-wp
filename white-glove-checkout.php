@@ -20,7 +20,9 @@ define('WGC_URL',  plugin_dir_url(__FILE__));
 
 // Load translations
 add_action('plugins_loaded', function () {
-    load_plugin_textdomain('white-glove-checkout', false, dirname(plugin_basename(__FILE__)) . '/languages');
+    if (function_exists('load_plugin_textdomain')) {
+        load_plugin_textdomain('white-glove-checkout', false, dirname(plugin_basename(__FILE__)) . '/languages');
+    }
 });
 
 add_action('before_woocommerce_init', function () {
@@ -32,6 +34,7 @@ add_action('before_woocommerce_init', function () {
 /**
  * ANCHOR: Bootstrap modules
  */
+require_once WGC_PATH . 'includes/wgc-constants.php';
 require_once WGC_PATH . 'includes/wgc-helpers.php';
 require_once WGC_PATH . 'includes/wgc-checkout.php';
 require_once WGC_PATH . 'includes/wgc-shipping.php';
@@ -56,13 +59,14 @@ add_filter('woocommerce_payment_gateways', function ($methods) {
  */
 add_action('init', function () {
     if (class_exists('WC_Payment_Gateways')) {
-        $settings = get_option('woocommerce_wgc_settings', []);
+        $settings = get_option(WGC_Const::OPTION_KEY, []);
         if (empty($settings)) {
             // First time - enable by default
-            update_option('woocommerce_wgc_settings', [
-                'enabled' => 'yes',
-                'title' => 'White Glove (No Payment)',
-                'description' => 'Place order without payment. We will contact you to finalize service.'
+            $defaults = WGC_Const::defaults();
+            update_option(WGC_Const::OPTION_KEY, [
+                'enabled'     => 'yes',
+                'title'       => $defaults['title'],
+                'description' => $defaults['description'],
             ]);
         }
     }
@@ -76,7 +80,7 @@ add_action('init', function () {
 add_action('woocommerce_blocks_loaded', function () {
     if (class_exists('\\Automattic\\WooCommerce\\Blocks\\Payments\\Integrations\\AbstractPaymentMethodType')) {
         // Only register the Blocks integration if the gateway is enabled
-        $settings = get_option('woocommerce_wgc_settings', []);
+    $settings = get_option(WGC_Const::OPTION_KEY, []);
         $enabled  = isset($settings['enabled']) ? $settings['enabled'] : 'yes';
         if ('yes' === $enabled) {
             require_once WGC_PATH . 'includes/class-wgc-blocks.php';
@@ -97,6 +101,20 @@ add_action('wp_enqueue_scripts', function () {
     if (! is_checkout()) {
         return;
     }
-    wp_enqueue_style('wgc-frontend', WGC_URL . 'assets/wgc-frontend.css', [], '1.0');
-    wp_enqueue_script('wgc-frontend', WGC_URL . 'assets/wgc-frontend.js', ['jquery'], '1.0', true);
+    wp_enqueue_style(WGC_Const::HANDLE_STYLE, WGC_URL . 'assets/wgc-frontend.css', [], '1.0');
+    wp_enqueue_script(WGC_Const::HANDLE_FRONTEND, WGC_URL . 'assets/wgc-frontend.js', ['jquery'], '1.0', true);
+
+    // Localize shared config for the simple frontend script
+    $i18n = WGC_Const::i18n();
+    wp_localize_script(WGC_Const::HANDLE_FRONTEND, 'WGC_FRONTEND', [
+        'id'        => WGC_Const::ID,
+        'fields'    => [
+            'details'    => WGC_Const::FIELD_DETAILS,
+            'detailsAlt' => WGC_Const::FIELD_DETAILS_ALT,
+        ],
+        'selectors' => WGC_Const::selectors(),
+        'i18n'      => [
+            'shipping_info_message' => $i18n['shipping_info_message'],
+        ],
+    ]);
 });

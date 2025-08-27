@@ -8,11 +8,12 @@ class WGC_Gateway extends WC_Payment_Gateway
 
     public function __construct()
     {
-        $this->id                 = 'wgc';
+    $this->id                 = WGC_Const::ID;
         $this->icon               = '';
         $this->has_fields         = true;
-        $this->method_title       = __('White Glove Checkout', 'white-glove-checkout');
-        $this->method_description = __('Allows customers to request white glove service.', 'white-glove-checkout');
+    $i18n = WGC_Const::i18n();
+    $this->method_title       = $i18n['gateway_method_title'];
+    $this->method_description = $i18n['gateway_method_desc'];
         $this->supports           = ['products'];
 
         // Load the settings
@@ -32,23 +33,23 @@ class WGC_Gateway extends WC_Payment_Gateway
     {
         $this->form_fields = [
             'enabled' => [
-                'title'   => __('Enable/Disable', 'white-glove-checkout'),
+                'title'   => __('Enable/Disable', WGC_Const::TEXT_DOMAIN),
                 'type'    => 'checkbox',
-                'label'   => __('Enable White Glove (No Payment)', 'white-glove-checkout'),
+                'label'   => __('Enable White Glove Service (Payment After Order)', WGC_Const::TEXT_DOMAIN),
                 'default' => 'yes',
             ],
             'title' => [
-                'title'       => __('Title', 'white-glove-checkout'),
+                'title'       => __('Title', WGC_Const::TEXT_DOMAIN),
                 'type'        => 'text',
-                'description' => __('Displayed to customers during checkout.', 'white-glove-checkout'),
-                'default'     => __('White Glove (No Payment)', 'white-glove-checkout'),
+                'description' => __('Displayed to customers during checkout.', WGC_Const::TEXT_DOMAIN),
+                'default'     => WGC_Const::defaults()['title'],
                 'desc_tip'    => true,
             ],
             'description' => [
-                'title'       => __('Description', 'white-glove-checkout'),
+                'title'       => __('Description', WGC_Const::TEXT_DOMAIN),
                 'type'        => 'textarea',
-                'description' => __('Payment method description that customers will see on your checkout.', 'white-glove-checkout'),
-                'default'     => __('Place order without payment. We will contact you to finalize service.', 'white-glove-checkout'),
+                'description' => __('Payment method description that customers will see on your checkout.', WGC_Const::TEXT_DOMAIN),
+                'default'     => WGC_Const::defaults()['description'],
                 'desc_tip'    => true,
             ],
         ];
@@ -65,13 +66,14 @@ class WGC_Gateway extends WC_Payment_Gateway
      */
     public function payment_fields()
     {
+    $i18n = WGC_Const::i18n();
         if (! empty($this->description)) {
             echo wpautop(wptexturize($this->description));
         }
         echo '<fieldset id="wgc-details-fields" class="wgc-fields">';
         echo '<p class="form-row form-row-wide">';
-        echo '<label for="wgc_details">' . esc_html__('White Glove Service Details', 'white-glove-checkout') . ' <span class="required">*</span></label>';
-        echo '<textarea name="wgc_details" id="wgc_details" rows="4" required placeholder="' . esc_attr__('Please add any helpful details for our team.', 'white-glove-checkout') . '"></textarea>';
+    echo '<label for="' . esc_attr(WGC_Const::FIELD_DETAILS) . '">' . esc_html($i18n['details_label']) . ' <span class="required">*</span></label>';
+    echo '<textarea name="' . esc_attr(WGC_Const::FIELD_DETAILS) . '" id="' . esc_attr(WGC_Const::FIELD_DETAILS) . '" rows="4" required placeholder="' . esc_attr($i18n['details_placeholder']) . '"></textarea>';
         echo '</p>';
         echo '</fieldset>';
     }
@@ -81,7 +83,7 @@ class WGC_Gateway extends WC_Payment_Gateway
         $order = wc_get_order($order_id);
 
         // Put the order on-hold (awaiting manual follow-up).
-        $order->update_status('on-hold', __('White Glove order placed without payment. Team will contact customer.', 'white-glove-checkout'));
+    $order->update_status('on-hold', WGC_Const::i18n()['order_note_on_hold']);
 
         // Reduce stock, clear cart, and return thank-you.
         wc_reduce_stock_levels($order_id);

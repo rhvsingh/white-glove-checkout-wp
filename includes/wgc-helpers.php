@@ -11,10 +11,10 @@ if (! function_exists('wgc_is_selected_method')) {
     function wgc_is_selected_method(): bool
     {
         $req = isset($_POST['payment_method']) ? sanitize_text_field(wp_unslash($_POST['payment_method'])) : '';
-        if ($req === 'wgc') return true;
+        if ($req === WGC_Const::ID) return true;
         if (function_exists('WC') && WC()->session) {
             $chosen = WC()->session->get('chosen_payment_method');
-            return $chosen === 'wgc';
+            return $chosen === WGC_Const::ID;
         }
         return false;
     }

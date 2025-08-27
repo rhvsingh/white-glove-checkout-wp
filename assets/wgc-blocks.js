@@ -43,7 +43,7 @@
                 if (!serviceDetails.trim()) {
                     return {
                         type: emitResponse.responseTypes.ERROR,
-                        message: __("Please provide service details for White Glove service.", "white-glove-checkout"),
+                        message: (window.WGC_DATA && window.WGC_DATA.i18n && window.WGC_DATA.i18n.validation_details_req) || __("Please provide White Glove Service Details.", "white-glove-checkout"),
                         messageContext: "wc/checkout/payments",
                     }
                 }
@@ -51,8 +51,8 @@
                     type: emitResponse.responseTypes.SUCCESS,
                     meta: {
                         paymentMethodData: {
-                            wgc_details: serviceDetails.trim(),
-                            "wgc-blocks-details": serviceDetails.trim(), // fallback key
+                            [(window.WGC_DATA && window.WGC_DATA.fields && window.WGC_DATA.fields.details) || 'wgc_details']: serviceDetails.trim(),
+                            [(window.WGC_DATA && window.WGC_DATA.fields && window.WGC_DATA.fields.detailsAlt) || 'wgc-blocks-details']: serviceDetails.trim(), // fallback key
                         },
                     },
                 }
@@ -66,12 +66,12 @@
             let debounceTimer = null
 
             // Cache DOM selectors
-            const selectors = {
+            const selectors = Object.assign({
                 paymentMethods: 'input[name="radio-control-wc-payment-method-options"]',
                 shippingMethods: ".wc-block-components-shipping-methods",
                 shippingTotal: ".wc-block-components-totals-shipping",
                 shippingHeading: ".wc-block-components-shipping-rates-control__package:not(.wc-block-components-panel)",
-            }
+            }, (window.WGC_DATA && window.WGC_DATA.selectors) || {})
 
             const toggleShipping = (isWhiteGlove) => {
                 if (isWhiteGlove === currentState) return
@@ -93,7 +93,10 @@
                     if (elements.total && !elements.total.parentNode.querySelector(".wgc-shipping-message")) {
                         const message = document.createElement("div")
                         message.className = "wgc-shipping-message"
-                        message.textContent = __("Shipping will be calculated later", "white-glove-checkout")
+                        message.textContent = __(
+                            "White Glove delivery will be finalized after your order.",
+                            "white-glove-checkout"
+                        )
                         elements.total.parentNode.insertBefore(message, elements.total.nextSibling)
                     }
                 } else {
@@ -108,7 +111,8 @@
 
             const handlePaymentChange = () => {
                 const selectedMethod = document.querySelector(`${selectors.paymentMethods}:checked`)
-                toggleShipping(selectedMethod?.value === "wgc")
+                const id = (window.WGC_DATA && window.WGC_DATA.id) || 'wgc'
+                toggleShipping(selectedMethod?.value === id)
             }
 
             const debouncedHandler = () => {
@@ -143,7 +147,7 @@
                 }
             })
 
-            const checkoutContainer = document.querySelector(".wc-block-checkout") || document.body
+            const checkoutContainer = document.querySelector((window.WGC_DATA && window.WGC_DATA.selectors && window.WGC_DATA.selectors.checkoutContainer) || ".wc-block-checkout") || document.body
             observer.observe(checkoutContainer, { childList: true, subtree: true })
 
             // Cleanup
@@ -227,19 +231,22 @@
                             },
                         },
                         [
-                            __("White Glove Service Details", "white-glove-checkout") + " ",
+                            ((window.WGC_DATA && window.WGC_DATA.i18n && window.WGC_DATA.i18n.details_label) || __("White Glove Service Details", "white-glove-checkout")) + " ",
                             createElement("span", { key: "required", style: { color: "red" } }, "*"),
                         ]
                     ),
 
                     createElement("textarea", {
                         key: "textarea",
-                        id: "wgc_details_blocks",
+                        id: `${((window.WGC_DATA && window.WGC_DATA.fields && window.WGC_DATA.fields.details) || 'wgc_details')}_blocks`,
                         className: "wgc-details-textarea",
-                        name: "wgc_details",
+                        name: ((window.WGC_DATA && window.WGC_DATA.fields && window.WGC_DATA.fields.details) || 'wgc_details'),
                         rows: 4,
                         required: true,
-                        placeholder: __("Please add any helpful details for our team.", "white-glove-checkout"),
+                        placeholder: ((window.WGC_DATA && window.WGC_DATA.i18n && window.WGC_DATA.i18n.details_placeholder) || __(
+                            "Kindly share any details that will help us deliver a seamless experience.",
+                            "white-glove-checkout"
+                        )),
                         value: serviceDetails,
                         onChange: (e) => setServiceDetails(e.target.value),
                     }),

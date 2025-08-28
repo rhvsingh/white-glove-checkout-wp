@@ -4,7 +4,7 @@
  * Plugin Name: White Glove Checkout
  * Description: Adds White Glove fields to Checkout Block and a no-payment gateway.
  * Author: Raja Harsh Vardhan Singh
- * Version: 1.7.4
+ * Version: 1.7.6
  * Text Domain: white-glove-checkout
  * Domain Path: /languages
  * 

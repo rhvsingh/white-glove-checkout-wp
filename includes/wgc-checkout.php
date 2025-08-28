@@ -2,7 +2,9 @@
 
 // ANCHOR: White Glove Checkout - Checkout lifecycle
 
-if (! defined('ABSPATH')) { exit; }
+if (! defined('ABSPATH')) {
+    exit;
+}
 
 require_once __DIR__ . '/wgc-helpers.php';
 
@@ -20,6 +22,11 @@ add_action('template_redirect', function () {
 
 // SECTION: Validation for required details
 add_action('woocommerce_after_checkout_validation', function ($data, $errors) {
+    // Skip validation for Store API (Blocks checkout) - it has its own JS validation
+    if (defined('REST_REQUEST') && REST_REQUEST) {
+        return;
+    }
+    
     $method = isset($data['payment_method']) ? (string) $data['payment_method'] : '';
     if ($method !== WGC_Const::ID) return;
     $details = isset($_POST[WGC_Const::FIELD_DETAILS]) ? (string) wp_unslash($_POST[WGC_Const::FIELD_DETAILS]) : '';

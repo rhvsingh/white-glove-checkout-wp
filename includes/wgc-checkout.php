@@ -21,14 +21,25 @@ add_action('template_redirect', function () {
 });
 
 // SECTION: Validation for required details
+// TEMPORARILY DISABLED - Testing if this causes the "first name required" error
+// The Blocks checkout has its own JS validation that's working correctly
+/*
 add_action('woocommerce_after_checkout_validation', function ($data, $errors) {
-    // Skip validation for Store API (Blocks checkout) - it has its own JS validation
+    // Skip validation for Store API (Blocks checkout) completely
+    // Blocks checkout has its own JS validation that works correctly
     if (defined('REST_REQUEST') && REST_REQUEST) {
         return;
     }
     
+    // Also skip if this is an AJAX request (additional safety)
+    if (wp_doing_ajax()) {
+        return;
+    }
+    
+    // Only validate for classic checkout with WGC method
     $method = isset($data['payment_method']) ? (string) $data['payment_method'] : '';
     if ($method !== WGC_Const::ID) return;
+    
     $details = isset($_POST[WGC_Const::FIELD_DETAILS]) ? (string) wp_unslash($_POST[WGC_Const::FIELD_DETAILS]) : '';
     if ($details === '' && isset($_POST[WGC_Const::FIELD_DETAILS_ALT])) {
         $details = (string) wp_unslash($_POST[WGC_Const::FIELD_DETAILS_ALT]);
@@ -36,7 +47,8 @@ add_action('woocommerce_after_checkout_validation', function ($data, $errors) {
     if ($details === '') {
         $errors->add('wgc_details_required', WGC_Const::i18n()['validation_details_req']);
     }
-}, 10, 2);
+}, 999, 2); // Very low priority to run after all other validations
+*/
 
 // SECTION: Save details in classic checkout
 add_action('woocommerce_checkout_create_order', function ($order, $data) {

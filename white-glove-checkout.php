@@ -4,7 +4,7 @@
  * Plugin Name: White Glove Checkout
  * Description: Adds White Glove fields to Checkout Block and a no-payment gateway.
  * Author: Raja Harsh Vardhan Singh
- * Version: 1.7.0
+ * Version: 1.7.4
  * Text Domain: white-glove-checkout
  * Domain Path: /languages
  * 
@@ -80,7 +80,7 @@ add_action('init', function () {
 add_action('woocommerce_blocks_loaded', function () {
     if (class_exists('\\Automattic\\WooCommerce\\Blocks\\Payments\\Integrations\\AbstractPaymentMethodType')) {
         // Only register the Blocks integration if the gateway is enabled
-    $settings = get_option(WGC_Const::OPTION_KEY, []);
+        $settings = get_option(WGC_Const::OPTION_KEY, []);
         $enabled  = isset($settings['enabled']) ? $settings['enabled'] : 'yes';
         if ('yes' === $enabled) {
             require_once WGC_PATH . 'includes/class-wgc-blocks.php';
